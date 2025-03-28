@@ -1,0 +1,107 @@
+﻿@using DbListener.Dal
+@using DbListener.Dal.Entityes
+@inject ConnectionDbContext _db
+@inject ISnackbar Snackbar
+
+
+<MudDialog>
+    <TitleContent>
+        <MudText Align="Align.Center">Обновить соединение</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Style="width: 300px; margin: 10px" Class="mx-auto pa-4">
+            <MudTextField Label="Название соединения" @bind-Value="connection.ConnectionName" Variant="Variant.Filled"></MudTextField>
+            <MudAutocomplete @bind-Value="connection.Type"
+            SearchFunc="Search"
+            Variant="MudBlazor.Variant.Filled"
+            Label="Тип базы данных"/>
+            <MudTextField Label="Соединения" @bind-Value="connection.Url" Variant="Variant.Filled"></MudTextField>
+            <MudAutocomplete @bind-Value="connection.Port"
+            SearchFunc="SearchPort"
+            Variant="MudBlazor.Variant.Filled"
+            Label="Порт"/>
+            <MudTextField Label="Название базы данных" @bind-Value="connection.DbName" Variant="Variant.Filled"></MudTextField>
+            <MudTextField Label="Логин" @bind-Value="connection.Name" Variant="Variant.Filled"></MudTextField>
+            <MudTextField Label="Пароль" @bind-Value="connection.Passworg" Variant="Variant.Filled" InputType="InputType.Password"></MudTextField>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter]
+    public Connection connection { get; set; }
+
+    private bool _processing = false;
+    private List<Connection> connections = new List<Connection>();
+
+    private string[] _states =
+    {
+        "Postgres", "Oracle",
+    };
+
+    private string[] _statesPorts =
+    {
+        "5432", "5435",
+    };
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    private void Submit()
+    {
+        try
+        {
+            _db.Connections.Update(connection);
+            _db.SaveChanges();
+            Snackbar.Add("Соединение обновлено", Severity.Success);
+        }
+        catch(Exception ex)
+        {
+            Snackbar.Add("Произошла ошибка при добавлении", Severity.Error);
+        }
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private Task<IEnumerable<string>> Search(string value)
+    {
+        // Ваш код для поиска типов базы данных
+        return Task.FromResult(new List<string> { "Type1", "Type2", "Type3" }.AsEnumerable());
+    }
+
+    private Task<IEnumerable<string>> SearchPort(string value)
+    {
+        // Ваш код для поиска портов
+        return Task.FromResult(new List<string> { "Port1", "Port2", "Port3" }.AsEnumerable());
+    }
+
+    private async Task<IEnumerable<string>> Search(string value, CancellationToken token)
+    {
+
+
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+            return _states;
+
+        return _states.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task<IEnumerable<string>> SearchPort(string value, CancellationToken token)
+    {
+
+
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+            return _statesPorts;
+
+        return _statesPorts.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+}

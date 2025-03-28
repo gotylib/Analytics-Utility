@@ -1,0 +1,131 @@
+﻿@page "/"
+@using DbListener.Dal
+@using DbListener.Dal.Entityes
+@inject ConnectionDbContext _db
+@inject ISnackbar Snackbar
+
+<style>
+    .main-content {
+    padding-top: 16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    }
+</style>
+
+<MudLayout>
+    <MudAppBar Color="Color.Primary" Fixed="false">
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="@ToggleDrawer" />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="@_open" Elevation="1" Anchor="Anchor.End">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">Меню</MudText>
+        </MudDrawerHeader>
+        <MudNavMenu>
+            <MudNavLink Href="/">Добавить соединение</MudNavLink>
+            <MudNavLink Href="/connections">Соединения</MudNavLink>
+            <MudNavLink Href="/billing">Отслеживание действий</MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Class="main-content">
+        <MudStack Style="width: 300px; margin: 10px" Class="mx-auto pa-4">
+            <MudText Align="Align.Center">Новое соединение</MudText>
+
+            <MudTextField Label="Название соединения" @bind-Value="connection.ConnectionName" Variant="Variant.Filled"></MudTextField>
+            <MudAutocomplete @bind-Value="connection.Type"
+            SearchFunc="Search"
+            Variant="MudBlazor.Variant.Filled"
+            Label="Тип базы данных"/>
+
+            <MudTextField Label="Соединения" @bind-Value="connection.Url" Variant="Variant.Filled"></MudTextField>
+
+            <MudAutocomplete @bind-Value="connection.Port"
+            SearchFunc="SearchPort"
+            Variant="MudBlazor.Variant.Filled"
+            Label="Порт"/>
+
+            <MudTextField Label="Название базы данных" @bind-Value="connection.DbName" Variant="Variant.Filled"></MudTextField>
+            <MudTextField Label="Логин" @bind-Value="connection.Name" Variant="Variant.Filled"></MudTextField>
+            <MudTextField Label="Пароль" @bind-Value="connection.Passworg" Variant="Variant.Filled" InputType="InputType.Password"></MudTextField>
+            <MudButton Disabled="@_processing" OnClick="AddAsync" Variant="Variant.Filled" Color="Color.Primary">
+                @if (_processing)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Medium" Indeterminate="true" />
+                    <MudText Class="ms-2">Processing</MudText>
+                }
+                else
+                {
+                    <MudText>Click me</MudText>
+                }
+            </MudButton>
+        </MudStack>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private Margin _margin;
+    private bool _dense;
+    private bool _disabled;
+    private bool _readonly;
+    private bool _placeholder;
+    private bool _helperText;
+    private bool _helperTextOnFocus;
+    private bool _clearable;
+    private Connection connection = new Connection();
+
+    private bool _open = false;
+
+    private void ToggleDrawer()
+    {
+        _open = !_open;
+    }
+
+    private string[] _states =
+    {
+        "Postgres", "Oracle",
+    };
+
+    private string[] _statesPorts =
+    {
+        "5432", "5435",
+    };
+    private bool _processing = false;
+
+    async Task AddAsync()
+    {
+        try
+        {
+            _db.Connections.Add(connection);
+            await _db.SaveChangesAsync();
+            Snackbar.Add("Соединение добавлено", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Произошла ошибка при добавлении", Severity.Success);
+        }
+    }
+
+    private async Task<IEnumerable<string>> Search(string value, CancellationToken token)
+    {
+
+
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+            return _states;
+
+        return _states.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task<IEnumerable<string>> SearchPort(string value, CancellationToken token)
+    {
+
+
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+                    return _statesPorts;
+
+        return _statesPorts.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+}
