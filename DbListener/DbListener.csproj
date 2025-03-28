@@ -67,7 +67,11 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
         <PackageReference Include="MudBlazor" Version="8.3.0" />
+        <PackageReference Include="Npgsql" Version="9.0.3" />
+        <PackageReference Include="Oracle.ManagedDataAccess" Version="23.7.0" />
         <PackageReference Include="SqlParser.Net" Version="1.0.5" />
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.3" />
+        <PackageReference Include="System.Security.Permissions" Version="9.0.3" />
     </ItemGroup>
 
     <ItemGroup>

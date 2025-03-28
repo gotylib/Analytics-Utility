@@ -1,5 +1,6 @@
 ﻿@page "/connections"
 @using DbListener.Dal
+@using DbListener.Services
 @using Microsoft.EntityFrameworkCore
 @using DbListener.Dal.Entityes
 @using SqlParser.Net;
@@ -157,24 +158,42 @@
 
     private void ParseQuery(string query)
     {
-        try
-        {
-            var sql = @"
-                SELECT t1.id, t2.name, t3.value
-                FROM schema1.table1 t1
-                INNER JOIN table2 t2 ON t1.id = t2.id
-                LEFT JOIN table3 t3 ON t2.id = t3.id
-                WHERE t1.status = 'active' AND t2.value > 100
-            ";
+        string host = "localhost";
+        int port = 5432;
+        string database = "taxmonipdl";
+        string username = "Gleb";
+        string password = "1234";
 
-            AnalyzeSql(sql, DbType.Pgsql);
+        string logFilePath = @"C:\Users\Admin\Desktop\wtf.log";
+        int intervalMilliseconds = 100; //Интервал проверки (0.2 сек)
+        int durationMinutes = 1; //Время работы (1 мин)
+        var type = SqlParser.Net.DbType.Pgsql;
+        var tracker = new Services.PostgresQueryTracker(
+            host, port, database,
+            username, password,
+            logFilePath, intervalMilliseconds,durationMinutes,
+            type);
+
+        
+       
+        // try
+        // {
+        //     var sql = @"
+        //         SELECT t1.id, t2.name, t3.value
+        //         FROM schema1.table1 t1
+        //         INNER JOIN table2 t2 ON t1.id = t2.id
+        //         LEFT JOIN table3 t3 ON t2.id = t3.id
+        //         WHERE t1.status = 'active' AND t2.value > 100
+        //     ";
+
+        //     AnalyzeSql(sql, DbType.Pgsql);
 
 
-        }
-        catch (Exception ex)
-        {
+        // }
+        // catch (Exception ex)
+        // {
 
-        }
+        // }
     }
 
     public static void AnalyzeSql(string sql, DbType dbType)
@@ -186,7 +205,7 @@
         ExtractTablesAndColumns(ast, tables, columns);
 
 
-        var path = @"C:\Users\User\Desktop\a.txt";
+        var path = @"C:\Users\Admin\Desktop\a.txt";
         Console.WriteLine("Tables used in the query:");
         File.AppendAllText(path, "Tables used in the query:\n");
         foreach (var table in tables)
