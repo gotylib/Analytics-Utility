@@ -127,7 +127,7 @@
 
     private void HandleCallMade(Connection connect)
     {
-        ParseQuery("efwqefwef");
+        TrackRequests("efwqefwef");
     }
 
     private Task<IDialogReference> HandleUpdate(Connection connect)
@@ -156,7 +156,7 @@
         _open = !_open;
     }
 
-    private void ParseQuery(string query)
+    private void TrackRequests(string query)
     {
         string host = "localhost";
         int port = 5432;
@@ -174,135 +174,5 @@
             logFilePath, intervalMilliseconds,durationMinutes,
             type);
 
-        
-       
-        // try
-        // {
-        //     var sql = @"
-        //         SELECT t1.id, t2.name, t3.value
-        //         FROM schema1.table1 t1
-        //         INNER JOIN table2 t2 ON t1.id = t2.id
-        //         LEFT JOIN table3 t3 ON t2.id = t3.id
-        //         WHERE t1.status = 'active' AND t2.value > 100
-        //     ";
-
-        //     AnalyzeSql(sql, DbType.Pgsql);
-
-
-        // }
-        // catch (Exception ex)
-        // {
-
-        // }
-    }
-
-    public static void AnalyzeSql(string sql, DbType dbType)
-    {
-        var ast = DbUtils.Parse(sql, dbType);
-        var tables = new HashSet<string>();
-        var columns = new HashSet<string>();
-
-        ExtractTablesAndColumns(ast, tables, columns);
-
-
-        var path = @"C:\Users\Admin\Desktop\a.txt";
-        Console.WriteLine("Tables used in the query:");
-        File.AppendAllText(path, "Tables used in the query:\n");
-        foreach (var table in tables)
-        {
-            Console.WriteLine($"- {table}");
-            File.AppendAllText(path, $"- {table}\n");
-        }
-
-        Console.WriteLine("\nColumns used in the query:");
-        File.AppendAllText(path, "\nColumns used in the query:\n");
-        foreach (var column in columns)
-        {
-            Console.WriteLine($"- {column}");
-            File.AppendAllText(path, $"- {column}\n");
-        }
-    }
-
-    private static void ExtractTablesAndColumns(SqlExpression node, HashSet<string> tables, HashSet<string> columns)
-    {
-        if (node is SqlTableExpression tableExpr)
-        {
-            // Добавляем имя таблицы
-            var tableName = tableExpr.Name.Value;
-            if (tableExpr.Schema != null)
-            {
-                tableName = $"{tableExpr.Schema.Value}.{tableName}";
-            }
-            tables.Add(tableName);
-
-            // Если есть алиас, тоже добавляем его
-            if (tableExpr.Alias != null)
-            {
-                tables.Add(tableExpr.Alias.Value);
-            }
-        }
-        else if (node is SqlPropertyExpression propExpr)
-        {
-            // Добавляем имя столбца в формате table.column или просто column
-            var columnName = propExpr.Name.Value;
-            if (propExpr.Table != null)
-            {
-                columnName = $"{propExpr.Table.Value}.{columnName}";
-            }
-            columns.Add(columnName);
-        }
-        else if (node is SqlIdentifierExpression identExpr &&
-                !(node.Parent is SqlTableExpression || node.Parent is SqlPropertyExpression))
-        {
-            // Простые идентификаторы (не часть таблицы или свойства)
-            columns.Add(identExpr.Value);
-        }
-
-        // Рекурсивно обходим дочерние узлы
-        if (node is SqlSelectExpression selectExpr)
-        {
-            ExtractTablesAndColumns(selectExpr.Query, tables, columns);
-        }
-        else if (node is SqlSelectQueryExpression selectQueryExpr)
-        {
-            if (selectQueryExpr.From != null)
-            {
-                ExtractTablesAndColumns(selectQueryExpr.From, tables, columns);
-            }
-
-            if (selectQueryExpr.Where != null)
-            {
-                ExtractTablesAndColumns(selectQueryExpr.Where, tables, columns);
-            }
-
-            if (selectQueryExpr.Columns != null)
-            {
-                foreach (var column in selectQueryExpr.Columns)
-                {
-                    ExtractTablesAndColumns(column, tables, columns);
-                }
-            }
-        }
-        else if (node is SqlSelectItemExpression selectItemExpr)
-        {
-            ExtractTablesAndColumns(selectItemExpr.Body, tables, columns);
-        }
-        else if (node is SqlJoinTableExpression joinExpr)
-        {
-            ExtractTablesAndColumns(joinExpr.Left, tables, columns);
-            ExtractTablesAndColumns(joinExpr.Right, tables, columns);
-            if (joinExpr.Conditions != null)
-            {
-                ExtractTablesAndColumns(joinExpr.Conditions, tables, columns);
-            }
-        }
-        else if (node is SqlBinaryExpression binaryExpr)
-        {
-            ExtractTablesAndColumns(binaryExpr.Left, tables, columns);
-            ExtractTablesAndColumns(binaryExpr.Right, tables, columns);
-        }
-        // Добавьте обработку других типов выражений по необходимости
-    }
-
-    
+    }    
 }

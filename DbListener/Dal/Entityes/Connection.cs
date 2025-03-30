@@ -25,6 +25,11 @@ namespace DbListener.Dal.Entityes
 
         [MaxLength(100)]
         public string Name { get; set; }
+
+        public int WorkTime { get; set; }
+
+        public int Wait {  get; set; }
+
         [MaxLength(100)]
         public string Passworg { get; set; }
 
