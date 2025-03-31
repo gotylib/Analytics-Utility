@@ -33,11 +33,12 @@ namespace DbListener
             builder.Services.AddDbContext<ConnectionDbContext>();
 
             var dbContext = new ConnectionDbContext();
+            //dbContext.Database.EnsureDeleted();
             dbContext.Database.EnsureCreated();
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();
-    		builder.Logging.AddDebug();
+            builder.Logging.AddDebug();
 #endif
 
             return builder.Build();

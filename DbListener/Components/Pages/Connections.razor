@@ -70,6 +70,7 @@
             <MudNavLink Href="/">Добавить соединение</MudNavLink>
             <MudNavLink Href="/connections">Соединения</MudNavLink>
             <MudNavLink Href="/billing">Отслеживание действий</MudNavLink>
+            <MudNavLink Href="/code-editor">Редактор кода</MudNavLink>
         </MudNavMenu>
     </MudDrawer>
 
@@ -98,8 +99,8 @@
                         <MudText Class="truncate" Style="font-size: 0.95rem;">@connect.ConnectionName</MudText>
                         <MudText Class="truncate" Style="font-size: 0.95rem;">@connect.Url</MudText>
                         <MudText Class="truncate" Style="font-size: 0.95rem;">@connect.Port</MudText>
-                        <MudNumericField @bind-Value="textValue1" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;" />
-                        <MudNumericField @bind-Value="textValue2" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;" />
+                        <MudNumericField @bind-Value="connect.Wait" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;" />
+                        <MudNumericField @bind-Value="connect.WorkTime" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;" />
                         <MudChip Class="truncate" Style="font-size: 0.9rem;" T="string" Variant="Variant.Outlined" Color="Color.Secondary">Отключено</MudChip>
                         <div class="action-buttons">
                             <MudIconButton Icon="@Icons.Material.Outlined.CallMade" Size="Size.Medium" Color="Color.Primary" OnClick="@(() => HandleCallMade(connect))" />
@@ -114,8 +115,6 @@
 </MudLayout>
 
 @code {
-    private int textValue1 = 0;
-    private int textValue2 = 0;
     private string outputValue = "";
     private bool _open;
     private List<Connection> connections = new List<Connection>();
@@ -125,9 +124,11 @@
         connections = await _db.Connections.ToListAsync();
     }
 
-    private void HandleCallMade(Connection connect)
+    private async Task HandleCallMade(Connection connect)
     {
-        TrackRequests("efwqefwef");
+        _db.Connections.Update(connect);
+        await _db.SaveChangesAsync();
+        TrackRequests(connect);
     }
 
     private Task<IDialogReference> HandleUpdate(Connection connect)
@@ -156,8 +157,13 @@
         _open = !_open;
     }
 
-    private void TrackRequests(string query)
+    private void TrackRequests(Connection connection)
     {
+        // string host = connection.Url;
+        // int port = int.Parse(connection.Port);
+        // string database = connection.DbName;
+        // string username = connection.Name;
+        // string password = connection.Password;
         string host = "localhost";
         int port = 5432;
         string database = "taxmonipdl";
@@ -165,8 +171,8 @@
         string password = "1234";
 
         string logFilePath = @"C:\Users\Admin\Desktop\wtf.log";
-        int intervalMilliseconds = 100; //Интервал проверки (0.2 сек)
-        int durationMinutes = 1; //Время работы (1 мин)
+        int intervalMilliseconds = 100; //Интервал проверки (0.1 сек)
+        int durationMinutes = connection.WorkTime; //Время работы (1 мин)
         var type = SqlParser.Net.DbType.Pgsql;
         var tracker = new Services.PostgresQueryTracker(
             host, port, database,

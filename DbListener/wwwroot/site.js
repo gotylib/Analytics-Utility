@@ -1,7 +1,37 @@
 ﻿window.initializeEditor = function () {
-    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs' } });
-    require(['vs/editor/editor.main', 'vs/basic-languages/monarch/monarch', 'vs/editor/contrib/bracketMatching/bracketMatching', 'vs/language/json/languageFeatures'], function () {
-        if (typeof monaco !== 'undefined' && monaco.languages && monaco.languages.register) {
+    // Проверяем, не загружен ли Monaco Editor уже
+    if (typeof monaco !== 'undefined') {
+        initMonacoEditor();
+        return;
+    }
+
+    // Настройка пути для загрузки Monaco Editor
+    const loaderScript = document.createElement('script');
+    loaderScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/loader.min.js';
+    loaderScript.onload = function () {
+        require.config({
+            paths: {
+                'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs',
+                'vs/basic-languages': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/basic-languages',
+                'vs/language': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/language'
+            }
+        });
+
+        require(['vs/editor/editor.main'], function () {
+            if (typeof monaco === 'undefined') {
+                console.error('Monaco Editor failed to load');
+                return;
+            }
+            initMonacoEditor();
+        });
+    };
+    loaderScript.onerror = function () {
+        console.error('Failed to load Monaco Editor loader script');
+    };
+    document.head.appendChild(loaderScript);
+
+    function initMonacoEditor() {
+        try {
             // Определение языка
             monaco.languages.register({ id: 'myLanguage' });
 
@@ -10,10 +40,10 @@
                 tokenizer: {
                     root: [
                         [/\b(if|else|while|for|return|int|float|string)\b/, "keyword"],
-                        [/\bГР\[(\d{8})]/, "custom-keyword"], // Подсветка для ГР с 8-значным числом
-                        [/\bГР\[/, "custom-keyword"], // Подсветка для ГР с открывающей скобкой
-                        [/\bГР(?!\[)/, "error"], // Подсветка ошибки, если ГР без скобки
-                        [/\b[A-Za-zА-Яа-я_]\w*\b/, "identifier"], // Поддержка русских идентификаторов
+                        [/\bГР\[(\d{8})]/, "custom-keyword"],
+                        [/\bГР\[/, "custom-keyword"],
+                        [/\bГР(?!\[)/, "error"],
+                        [/\b[A-Za-zА-Яа-я_]\w*\b/, "identifier"],
                         [/\d+/, "number"],
                         [/"[^"]*"/, "string"],
                         [/\/\/.*$/, "comment"],
@@ -73,7 +103,7 @@
                     while ((match = regex.exec(line)) !== null) {
                         const [fullMatch, number] = match;
                         if (number.length === 0 || number.length !== 8) {
-                            const startColumn = line.indexOf(fullMatch);
+                            const startColumn = match.index + 1;
                             const endColumn = startColumn + fullMatch.length;
                             diagnostics.push({
                                 startLineNumber: lineIndex + 1,
@@ -95,28 +125,39 @@
                 language: 'myLanguage',
                 glyphMargin: true,
                 automaticLayout: true,
+                minimap: { enabled: true },
                 value: [
                     'int main() {',
                     '    int x = 10;',
                     '    return x;',
                     '    ГР[12345678];', // Пример корректного использования ГР
+                    '    ГР[123]; // Ошибка - не 8 цифр',
                     '}'
                 ].join('\n')
             };
 
+            // Проверяем существование элемента перед созданием редактора
+            const editorElement = document.getElementById('editor');
+            if (!editorElement) {
+                console.error('Editor container element not found');
+                return;
+            }
+
+
             // Инициализация редактора
-            const editor = monaco.editor.create(document.getElementById('editor'), editorOptions);
+            const editor = monaco.editor.create(editorElement, editorOptions);
 
             // Установка диагностических сообщений
             const model = editor.getModel();
-            const updateDiagnostics = monaco.editor.setModelMarkers(model, 'myLanguage', getDiagnostics(model));
+            monaco.editor.setModelMarkers(model, 'myLanguage', getDiagnostics(model));
 
             // Обновление диагностики при изменении модели
             model.onDidChangeContent(() => {
-                updateDiagnostics(getDiagnostics(model));
+                monaco.editor.setModelMarkers(model, 'myLanguage', getDiagnostics(model));
             });
-        } else {
-            console.error('Monaco editor or its languages module failed to load.');
+
+        } catch (error) {
+            console.error('Error initializing Monaco Editor:', error);
         }
-    });
+    }
 };

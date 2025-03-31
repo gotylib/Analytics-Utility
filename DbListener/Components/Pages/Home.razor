@@ -49,7 +49,7 @@
 
             <MudTextField Label="Название базы данных" @bind-Value="connection.DbName" Variant="Variant.Filled"></MudTextField>
             <MudTextField Label="Логин" @bind-Value="connection.Name" Variant="Variant.Filled"></MudTextField>
-            <MudTextField Label="Пароль" @bind-Value="connection.Passworg" Variant="Variant.Filled" InputType="InputType.Password"></MudTextField>
+            <MudTextField Label="Пароль" @bind-Value="connection.Password" Variant="Variant.Filled" InputType="InputType.Password"></MudTextField>
             <MudButton Disabled="@_processing" OnClick="AddAsync" Variant="Variant.Filled" Color="Color.Primary">
                 @if (_processing)
                 {
