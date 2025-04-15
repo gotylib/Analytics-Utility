@@ -1,32 +1,32 @@
 ﻿using Npgsql;
 using SqlParser.Net;
 using System.Text.Json;
+using DbListener.Dal;
+using DbListener.Dal.Entityes;
+using Microsoft.EntityFrameworkCore;
 
 namespace DbListener.Services
 {
     public class PostgresQueryTracker : IDisposable
     {
         private readonly string _connectionString;
-        private readonly string _logFilePath;
-        private List<string> _queryes;
-        private List<string> _sqlNoise = new List<string>();
+        private List<string> _queries;
         private Timer _timer;
         private bool _disposed;
+        private ConnectionDbContext _context;
+        private Connection _connection;
 
-        public PostgresQueryTracker(string host, int port, string database,
-                                  string username, string password,
-                                  string logFilePath, int intervalMilliseconds,
-                                  int durationMinutes, DbType dbType)
+        public PostgresQueryTracker(Connection  connection,
+                                  DbType dbType,
+                                  ConnectionDbContext context)
         {
-            _connectionString = $"Host={host};Port={port};Database={database};" +
-                              $"Username={username};Password={password};";
-
-            _logFilePath = logFilePath;
-
-            if (File.Exists(_logFilePath))
-            {
-                File.Delete(_logFilePath);
-            }
+            _connectionString = $"Host={connection.Url};Port={connection.Port};Database={connection.DbName};" +
+                              $"Username={connection.Name};Password={connection.Password};";
+            
+            _connection = connection;
+            
+            _context = context;
+            
         }
 
         public async Task<ResultModel<object, Exception>> StartTracking(int minutes, bool isNoise)
@@ -37,23 +37,17 @@ namespace DbListener.Services
                 await connection.OpenAsync();
 
                 using var command = new NpgsqlCommand();
-
                 command.CommandText = "SELECT pg_stat_statements_reset()";
                 command.Connection = connection;
                 await command.ExecuteNonQueryAsync();
 
-                command.CommandText = @"
-                SELECT
-                    query
-                FROM pg_stat_statements";
-
+                command.CommandText = "SELECT query FROM pg_stat_statements";
                 using var reader = await command.ExecuteReaderAsync();
 
-                _queryes = new List<string>();
-
+                _queries = new List<string>();
                 while (await reader.ReadAsync())
                 {
-                    _queryes.Add(reader["query"].ToString());
+                    _queries.Add(reader["query"].ToString());
                 }
 
                 _timer?.Dispose();
@@ -64,14 +58,15 @@ namespace DbListener.Services
                         await StopTrackingSqlNoise();
                         _timer?.Dispose();
                     }, null, minutes * 60 * 1000, Timeout.Infinite);
-
-                    return ResultModel<object, Exception>.CreateSuccessfulResult();
                 }
-                _timer = new Timer(async _ =>
+                else
                 {
-                    await StopTrackingAndAnalyze();
-                    _timer?.Dispose();
-                }, null, minutes * 60 * 1000, Timeout.Infinite);
+                    _timer = new Timer(async _ =>
+                    {
+                        await StopTrackingAndAnalyze();
+                        _timer?.Dispose();
+                    }, null, minutes * 60 * 1000, Timeout.Infinite);
+                }
 
                 return ResultModel<object, Exception>.CreateSuccessfulResult();
             }
@@ -79,119 +74,132 @@ namespace DbListener.Services
             {
                 return ResultModel<object, Exception>.CreateFailedResult(ex);
             }
-
-
         }
 
         public async Task StopTrackingSqlNoise()
         {
             if (_disposed) return;
 
-
             await using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             using var command = new NpgsqlCommand();
-
-            command.CommandText = @"
-                SELECT
-                    query
-                FROM pg_stat_statements";
-
+            command.CommandText = "SELECT query FROM pg_stat_statements";
             command.Connection = connection;
+            
             using var reader = await command.ExecuteReaderAsync();
-
+            var sqlNoise = new List<SqlNoise>();
             while (await reader.ReadAsync())
             {
-                _sqlNoise.Add(reader["query"].ToString());
+                sqlNoise.Add(new SqlNoise()
+                {
+                    Query = reader["query"].ToString(),
+                    Connection = _connection,
+                });
             }
+            _context.SqlNoises.AddRange(sqlNoise);
+            _connection.SqlNoise = sqlNoise;
+            _context.Connections.Update(_connection);
+            await _context.SaveChangesAsync();
+            await connection.CloseAsync();
+            
         }
 
-        private async Task StopTrackingAndAnalyze()
+       private async Task StopTrackingAndAnalyze()
         {
             if (_disposed) return;
 
+            // Собираем запросы из pg_stat_statements
+            await using var pgConnection = new NpgsqlConnection(_connectionString);
+            await pgConnection.OpenAsync();
 
-            await using var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            using var command = new NpgsqlCommand();
-
-            command.CommandText = @"
-                SELECT
-                    query
-                FROM pg_stat_statements";
-
-            command.Connection = connection;
-            using var reader = await command.ExecuteReaderAsync();
-
-            var collectedQueryes = new List<string>();
-
-            while (await reader.ReadAsync())
+            var collectedQueries = new List<string>();
+            using (var command = new NpgsqlCommand("SELECT query FROM pg_stat_statements", pgConnection))
+            using (var reader = await command.ExecuteReaderAsync())
             {
-                collectedQueryes.Add(reader["query"].ToString());
+                while (await reader.ReadAsync())
+                {
+                    collectedQueries.Add(reader["query"].ToString());
+                }
             }
 
-            var queriesToAnalyze = collectedQueryes
-                .Except(_queryes, StringComparer.OrdinalIgnoreCase)
-                .Except(_sqlNoise, StringComparer.OrdinalIgnoreCase)
+            // Фильтруем запросы для анализа
+            var queriesToAnalyze = collectedQueries
+                .Except(_queries, StringComparer.OrdinalIgnoreCase)
+                .Except(_connection.SqlNoise.Select(q => q.Query), StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            
+            // Создаем новый отчет
+            var report = new Report
+            {
+                DateOfLog = DateTime.Now,
+                ConnectionId = _connection.Id,
+                Connection = _connection
+            };
 
+            var reportItems = new List<ReportItem>();
 
-            // Словарь для хранения результатов: таблица -> список колонок
-            var result = new Dictionary<string, HashSet<string>>();
-
+            // Анализируем каждый запрос
             foreach (var sql in queriesToAnalyze)
             {
                 try
                 {
                     var parseResult = SqlQueryParser.ParseSql(sql);
+                    var tablesAndColumns = new Dictionary<string, List<string>>();
 
-                    // Добавляем найденные таблицы и колонки в результат
+                    // Обрабатываем таблицы и столбцы
                     foreach (var table in parseResult.Tables)
                     {
-                        if (!result.ContainsKey(table))
-                        {
-                            result[table] = new HashSet<string>();
-                        }
-
                         foreach (var column in parseResult.Columns)
                         {
-                            result[table].Add(column);
+                            if (!tablesAndColumns.ContainsKey(table))
+                            {
+                                tablesAndColumns[table] = new List<string>();
+                            }
+                            tablesAndColumns[table].Add(column);
                         }
                     }
+
+                    // Формируем строку с таблицами и столбцами
+                    var tablesAndColumnsStr = string.Join("; ", 
+                        tablesAndColumns.Select(kv => $"{kv.Key}: {string.Join(", ", kv.Value.Distinct())}"));
+                    
+                    reportItems.Add(new ReportItem
+                    {
+                        Query = sql,
+                        TablesAndColumns = tablesAndColumnsStr
+                    });
                 }
                 catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка при анализе запроса: {ex.Message}");
-                    Console.WriteLine($"Проблемный запрос: {sql}");
+                { 
+                    Console.WriteLine($"Ошибка при анализе запроса: {ex.Message}\nПроблемный запрос: {sql}\n");
                 }
             }
 
-            // Сохраняем результат в JSON
-            var outputPath = @"C:\Users\Admin\Desktop\a.json";
-            var options = new JsonSerializerOptions
+            // Сохраняем в базу данных
+            await using (var dbContext = new ConnectionDbContext())
             {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
+                // Добавляем отчет
+                await dbContext.Reports.AddAsync(report);
+                await dbContext.SaveChangesAsync();
 
-            // Преобразуем HashSet в List для сериализации
-            var serializableResult = result.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value.ToList()
-            );
+                // Добавляем элементы отчета
+                foreach (var item in reportItems)
+                {
+                    // Если вы добавите связь между Report и ReportItem:
+                    // item.ReportId = report.Id;
+                    await dbContext.AddAsync(item);
+                }
 
-            await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(serializableResult, options));
-            Console.WriteLine($"Результаты анализа сохранены в {outputPath}");
+                await dbContext.SaveChangesAsync();
+            }
         }
-
-
+        
         public void Dispose()
         {
             if (_disposed) return;
-
             _disposed = true;
+            _timer?.Dispose();
             GC.SuppressFinalize(this);
         }
     }

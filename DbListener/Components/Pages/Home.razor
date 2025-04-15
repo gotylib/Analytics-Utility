@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using DbListener.Dal
 @using DbListener.Dal.Entityes
+@using DbListener.Services
 @inject ConnectionDbContext _db
 @inject ISnackbar Snackbar
 
@@ -36,16 +37,16 @@
 
             <MudTextField Label="Название соединения" @bind-Value="connection.ConnectionName" Variant="Variant.Filled"></MudTextField>
             <MudAutocomplete @bind-Value="connection.Type"
-            SearchFunc="Search"
-            Variant="MudBlazor.Variant.Filled"
-            Label="Тип базы данных"/>
+                             SearchFunc="Search"
+                             Variant="MudBlazor.Variant.Filled"
+                             Label="Тип базы данных"/>
 
             <MudTextField Label="Соединения" @bind-Value="connection.Url" Variant="Variant.Filled"></MudTextField>
 
             <MudAutocomplete @bind-Value="connection.Port"
-            SearchFunc="SearchPort"
-            Variant="MudBlazor.Variant.Filled"
-            Label="Порт"/>
+                             SearchFunc="SearchPort"
+                             Variant="MudBlazor.Variant.Filled"
+                             Label="Порт"/>
 
             <MudTextField Label="Название базы данных" @bind-Value="connection.DbName" Variant="Variant.Filled"></MudTextField>
             <MudTextField Label="Логин" @bind-Value="connection.Name" Variant="Variant.Filled"></MudTextField>
@@ -64,6 +65,7 @@
         </MudStack>
     </MudMainContent>
 </MudLayout>
+
 
 @code {
     private Margin _margin;
@@ -101,6 +103,10 @@
             _db.Connections.Add(connection);
             await _db.SaveChangesAsync();
             Snackbar.Add("Соединение добавлено", Severity.Success);
+             new PostgresQueryTracker(connection,
+                SqlParser.Net.DbType.Pgsql,
+                _db);
+            
         }
         catch (Exception ex)
         {

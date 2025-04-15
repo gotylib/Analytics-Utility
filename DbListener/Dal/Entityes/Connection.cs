@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections;
+using System.ComponentModel.DataAnnotations;
 
 
 namespace DbListener.Dal.Entityes
@@ -33,6 +34,8 @@ namespace DbListener.Dal.Entityes
         [MaxLength(100)]
         public string Password { get; set; }
 
-
+        public ICollection<Report> Reports { get; set; }
+        
+        public ICollection<SqlNoise> SqlNoise { get; set; }
     }
 }

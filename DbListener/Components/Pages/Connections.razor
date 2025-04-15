@@ -176,10 +176,9 @@
         int durationMinutes = connection.WorkTime; //Время работы (1 мин)
         var type = SqlParser.Net.DbType.Pgsql;
         var tracker = new Services.PostgresQueryTracker(
-            host, port, database,
-            username, password,
-            logFilePath, intervalMilliseconds,durationMinutes,
-            type);
+            connection,
+            type,
+            _db);
         if (!IsNoiseCheck)
         {
             await tracker.StartTracking(1, true);
