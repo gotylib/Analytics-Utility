@@ -160,18 +160,6 @@
 
     private async Task TrackRequests(Connection connection)
     {
-        // string host = connection.Url;
-        // int port = int.Parse(connection.Port);
-        // string database = connection.DbName;
-        // string username = connection.Name;
-        // string password = connection.Password;
-        string host = "localhost";
-        int port = 5432;
-        string database = "taxmonipdl";
-        string username = "Gleb";
-        string password = "1234";
-
-        string logFilePath = @"C:\Users\Admin\Desktop\wtf.log";
         int intervalMilliseconds = 100; //Интервал проверки (0.1 сек)
         int durationMinutes = connection.WorkTime; //Время работы (1 мин)
         var type = SqlParser.Net.DbType.Pgsql;

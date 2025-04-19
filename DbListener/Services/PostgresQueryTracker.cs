@@ -15,8 +15,10 @@ namespace DbListener.Services
         private bool _disposed;
         private ConnectionDbContext _context;
         private Connection _connection;
+        private Task _backgroundTask;
+        private CancellationTokenSource _cts;
 
-        public PostgresQueryTracker(Connection  connection,
+        public PostgresQueryTracker(Connection connection,
                                   DbType dbType,
                                   ConnectionDbContext context)
         {
@@ -24,9 +26,8 @@ namespace DbListener.Services
                               $"Username={connection.Name};Password={connection.Password};";
             
             _connection = connection;
-            
             _context = context;
-            
+            _cts = new CancellationTokenSource();
         }
 
         public async Task<ResultModel<object, Exception>> StartTracking(int minutes, bool isNoise)
@@ -51,22 +52,28 @@ namespace DbListener.Services
                 }
 
                 _timer?.Dispose();
-                if (isNoise)
+                
+                // Запускаем фоновую задачу
+                _backgroundTask = Task.Run(async () => 
                 {
-                    _timer = new Timer(async _ =>
+                    try
                     {
-                        await StopTrackingSqlNoise();
-                        _timer?.Dispose();
-                    }, null, minutes * 60 * 1000, Timeout.Infinite);
-                }
-                else
-                {
-                    _timer = new Timer(async _ =>
+                        await Task.Delay(minutes * 60 * 1000, _cts.Token);
+                        
+                        if (isNoise)
+                        {
+                            await StopTrackingSqlNoise();
+                        }
+                        else
+                        {
+                            await StopTrackingAndAnalyze();
+                        }
+                    }
+                    catch (TaskCanceledException)
                     {
-                        await StopTrackingAndAnalyze();
-                        _timer?.Dispose();
-                    }, null, minutes * 60 * 1000, Timeout.Infinite);
-                }
+                        // Задача была отменена - это нормально
+                    }
+                }, _cts.Token);
 
                 return ResultModel<object, Exception>.CreateSuccessfulResult();
             }
@@ -102,10 +109,9 @@ namespace DbListener.Services
             _context.Connections.Update(_connection);
             await _context.SaveChangesAsync();
             await connection.CloseAsync();
-            
         }
 
-       private async Task StopTrackingAndAnalyze()
+        private async Task StopTrackingAndAnalyze()
         {
             if (_disposed) return;
 
@@ -186,8 +192,6 @@ namespace DbListener.Services
                 // Добавляем элементы отчета
                 foreach (var item in reportItems)
                 {
-                    // Если вы добавите связь между Report и ReportItem:
-                    // item.ReportId = report.Id;
                     await dbContext.AddAsync(item);
                 }
 
@@ -199,8 +203,18 @@ namespace DbListener.Services
         {
             if (_disposed) return;
             _disposed = true;
+            
+            // Отменяем фоновую задачу
+            _cts?.Cancel();
+            
+            // Дожидаемся завершения фоновой задачи
+            _backgroundTask?.GetAwaiter().GetResult();
+            
+            _cts?.Dispose();
             _timer?.Dispose();
-            GC.SuppressFinalize(this);
+            
+            // Убираем подавление финализации, чтобы GC мог собрать объект
+            // GC.SuppressFinalize(this); // Убрали эту строку
         }
     }
 }

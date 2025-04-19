@@ -22,6 +22,9 @@ namespace DbListener.Dal
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Connection>().HasKey(x => x.Id);
+            modelBuilder.Entity<Report>().HasKey(x => x.Id);
+            modelBuilder.Entity<SqlNoise>().HasKey(x => x.Id);
+            modelBuilder.Entity<ReportItem>().HasKey(x => x.Id);
         }
     }
 }

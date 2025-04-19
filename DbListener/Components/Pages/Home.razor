@@ -69,13 +69,6 @@
 
 @code {
     private Margin _margin;
-    private bool _dense;
-    private bool _disabled;
-    private bool _readonly;
-    private bool _placeholder;
-    private bool _helperText;
-    private bool _helperTextOnFocus;
-    private bool _clearable;
     private Connection connection = new Connection();
 
     private bool _open = false;
@@ -103,10 +96,11 @@
             _db.Connections.Add(connection);
             await _db.SaveChangesAsync();
             Snackbar.Add("Соединение добавлено", Severity.Success);
-             new PostgresQueryTracker(connection,
+             var tracker = new PostgresQueryTracker(connection,
                 SqlParser.Net.DbType.Pgsql,
                 _db);
-            
+             await tracker.StartTracking(2, true);
+
         }
         catch (Exception ex)
         {
