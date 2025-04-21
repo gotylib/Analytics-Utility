@@ -1,10 +1,8 @@
 ﻿@page "/connections"
 @using DbListener.Dal
-@using DbListener.Services
 @using Microsoft.EntityFrameworkCore
 @using DbListener.Dal.Entityes
-@using SqlParser.Net;
-@using SqlParser.Net.Ast.Expression
+@inject NavigationManager Navigation
 @inject ConnectionDbContext _db
 @inject IDialogService DialogService
 
@@ -96,16 +94,17 @@
             {
                 <MudPaper Class="connection-paper" Elevation="0">
                     <div class="connection-container">
+                        <MudButton OnClick="() => GoToReport(connect)">@connect.ConnectionName</MudButton>
                         <MudText Class="truncate" Style="font-size: 0.95rem;">@connect.ConnectionName</MudText>
                         <MudText Class="truncate" Style="font-size: 0.95rem;">@connect.Url</MudText>
                         <MudText Class="truncate" Style="font-size: 0.95rem;">@connect.Port</MudText>
-                        <MudNumericField @bind-Value="connect.Wait" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;" />
-                        <MudNumericField @bind-Value="connect.WorkTime" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;" />
+                        <MudNumericField @bind-Value="connect.Wait" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;"/>
+                        <MudNumericField @bind-Value="connect.WorkTime" Min="0" Class="numeric-field" Style="padding: 0; font-size: 0.95rem;"/>
                         <MudChip Class="truncate" Style="font-size: 0.9rem;" T="string" Variant="Variant.Outlined" Color="Color.Secondary">Отключено</MudChip>
                         <div class="action-buttons">
-                            <MudIconButton Icon="@Icons.Material.Outlined.CallMade" Size="Size.Medium" Color="Color.Primary" OnClick="@(() => HandleCallMade(connect))" />
-                            <MudIconButton Icon="@Icons.Material.Outlined.Update" Size="Size.Medium" Color="Color.Info" OnClick="@(() => HandleUpdate(connect))" />
-                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Medium" Color="Color.Error" OnClick="@(() => HandleDelete(connect))" />
+                            <MudIconButton Icon="@Icons.Material.Outlined.CallMade" Size="Size.Medium" Color="Color.Primary" OnClick="() => HandleCallMade(connect)"/>
+                            <MudIconButton Icon="@Icons.Material.Outlined.Update" Size="Size.Medium" Color="Color.Info" OnClick="() => HandleUpdate(connect)"/>
+                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Medium" Color="Color.Error" OnClick="() => HandleDelete(connect)"/>
                         </div>
                     </div>
                 </MudPaper>
@@ -151,6 +150,11 @@
         connections.Remove(connect);
         StateHasChanged();
 
+    }
+
+    private void GoToReport(Connection connect)
+    {
+        Navigation.NavigateTo($"/reports/{connect.Id}");
     }
 
     private void ToggleDrawer()

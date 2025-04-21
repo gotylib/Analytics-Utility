@@ -10,6 +10,7 @@ namespace DbListener.Dal
         
         public DbSet<Report> Reports { get; set; }
         
+        public DbSet<ReportItem> ReportItems { get; set; }
         public DbSet<SqlNoise> SqlNoises { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
